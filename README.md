@@ -57,18 +57,6 @@ npm run dev
 
 ## 默认初始化数据
 
-首次启动（表为空时）自动创建：
-
-- **默认用户**：用户名 `user`，密码 `user123456`，角色 user
-- **默认模型**（5 个）：
-  - GPT-5.4（openai_chat，sort 10）
-  - GPT-5.4 Mini（openai_chat，sort 20）
-  - Claude Opus 4.6（anthropic，sort 30）
-  - Gemini 3 Pro Low（gemini，sort 40）
-  - GPT Image 2（openai_image，**默认禁用**，sort 50）
-
-## 开发流程
-
 1. Windows 本地跑通
 2. 上传到 GitHub
 3. 服务器从 GitHub 拉取
