@@ -147,6 +147,16 @@ class UsageLog(Base):
 
 # ──────────────────── image_tasks ────────────────────────
 
+class SiteSetting(Base):
+    __tablename__ = "site_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    key: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    value: Mapped[str] = mapped_column(String(512), nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+# ──────────────────── image_tasks ────────────────────────
+
 class ImageTask(Base):
     __tablename__ = "image_tasks"
 

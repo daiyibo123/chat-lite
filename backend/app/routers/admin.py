@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
-from app.models import KeyInputSetting, Model as ModelORM
+from app.models import KeyInputSetting, Model as ModelORM, SiteSetting
 from app.schemas import (
     AdminLoginRequest,
     AdminLoginResponse,
@@ -22,6 +22,22 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 bearer = HTTPBearer()
 KEY_TYPES = ("openai_key", "claude_key", "gemini_key")
 DEFAULT_REPAIR_MESSAGE = "该模型正在修复中....."
+
+
+SITE_SETTING_DEFAULTS = {
+    "sso_enabled": "true",
+}
+
+
+def _ensure_site_settings(db: Session):
+    existing = {row.key: row for row in db.query(SiteSetting).all()}
+    changed = False
+    for key, default in SITE_SETTING_DEFAULTS.items():
+        if key not in existing:
+            db.add(SiteSetting(key=key, value=default))
+            changed = True
+    if changed:
+        db.commit()
 
 
 # ───────────── admin 鉴权依赖 ─────────────
@@ -107,6 +123,35 @@ def update_key_input_setting(
 @router.get("/verify")
 def verify_admin(_=Depends(require_admin)):
     return {"ok": True}
+
+
+# ────────────── 站点设置 ────────────────
+
+@router.get("/site-settings")
+def get_site_settings(
+    _=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    _ensure_site_settings(db)
+    rows = db.query(SiteSetting).all()
+    return {row.key: row.value for row in rows}
+
+
+@router.put("/site-settings/{key}")
+def update_site_setting(
+    key: str,
+    body: dict,
+    _=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    if key not in SITE_SETTING_DEFAULTS:
+        raise HTTPException(status_code=400, detail=f"未知设置项: {key}")
+    _ensure_site_settings(db)
+    row = db.query(SiteSetting).filter(SiteSetting.key == key).first()
+    row.value = str(body.get("value", ""))[:512]
+    db.commit()
+    db.refresh(row)
+    return {"key": row.key, "value": row.value}
 
 
 # ────────────── 模型列表 ──────────────────

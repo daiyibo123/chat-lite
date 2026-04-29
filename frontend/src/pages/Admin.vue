@@ -30,6 +30,24 @@
       </header>
 
       <section class="key-control-panel">
+        <div class="panel-title">站点设置</div>
+        <div class="key-switches">
+          <div class="key-switch-card">
+            <div>
+              <div class="key-switch-title">sub2api 一键登录 (SSO)</div>
+              <div class="key-switch-desc">{{ siteSettings.sso_enabled ? '用户可使用 sub2api 一键登录' : 'SSO 登录入口已关闭' }}</div>
+            </div>
+            <button
+              :class="siteSettings.sso_enabled ? 'switch-btn on' : 'switch-btn off'"
+              @click="toggleSiteSetting('sso_enabled')"
+            >
+              {{ siteSettings.sso_enabled ? '已开启 · 点击关闭' : '已关闭 · 点击开启' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="key-control-panel">
         <div class="panel-title">API Key 输入框控制</div>
         <div class="key-switches">
           <div class="key-switch-card" v-for="item in keyControlItems" :key="item.type">
@@ -170,6 +188,7 @@ const loginError = ref('')
 
 const models = ref([])
 const keySettings = ref({})
+const siteSettings = ref({ sso_enabled: true })
 const showModal = ref(false)
 const isEdit = ref(false)
 const editId = ref(null)
@@ -198,6 +217,27 @@ function adminHeaders() {
   return { Authorization: `Bearer ${adminToken.value}` }
 }
 
+async function loadSiteSettings() {
+  try {
+    const res = await request.get('/api/admin/site-settings', { headers: adminHeaders() })
+    siteSettings.value = {
+      sso_enabled: res.data.sso_enabled === 'true',
+    }
+  } catch (e) {
+    if (e.response?.status === 401) { adminLogout() }
+  }
+}
+
+async function toggleSiteSetting(key) {
+  const newVal = !siteSettings.value[key]
+  await request.put(
+    `/api/admin/site-settings/${key}`,
+    { value: String(newVal) },
+    { headers: adminHeaders() }
+  )
+  await loadSiteSettings()
+}
+
 async function handleAdminLogin() {
   loginError.value = ''
   try {
@@ -206,6 +246,7 @@ async function handleAdminLogin() {
     localStorage.setItem('admin_token', adminToken.value)
     await loadModels()
     await loadKeySettings()
+    await loadSiteSettings()
     router.push('/admin')
   } catch (e) {
     loginError.value = e.response?.data?.detail || '登录失败'
@@ -304,6 +345,7 @@ onMounted(() => {
   if (adminToken.value) {
     loadModels()
     loadKeySettings()
+    loadSiteSettings()
   }
 })
 </script>
