@@ -141,6 +141,11 @@ async function loadConversations() {
         currentConv.value = saved
         return
       }
+      // savedId 不存在或未命中 → 自动选中第一个对话
+      if (res.data.length) {
+        currentConv.value = res.data[0]
+        return
+      }
     }
     if (currentConv.value && !res.data.find(c => c.id === currentConv.value.id)) {
       currentConv.value = res.data.length ? res.data[0] : null
