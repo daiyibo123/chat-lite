@@ -146,8 +146,15 @@ async def _call_anthropic(endpoint_url: str, model_name: str, api_key: str, mess
 
 
 async def _call_openai_image(endpoint_url: str, model_name: str, api_key: str, prompt: str) -> dict:
-    image_endpoint = endpoint_url          # 统一使用 /v1/images/generations
-    payload = {"model": model_name, "prompt": prompt, "n": 1, "size": "1024x1024"}
+    # gpt-image-* 系列使用 /v1/responses 端点；dall-e-* 等使用 /v1/images/generations
+    use_responses = "gpt-image" in model_name
+    if use_responses:
+        base = endpoint_url.rsplit("/v1/", 1)[0]
+        image_endpoint = f"{base}/v1/responses"
+        payload = {"model": model_name, "input": prompt}
+    else:
+        image_endpoint = endpoint_url
+        payload = {"model": model_name, "prompt": prompt, "n": 1, "size": "1024x1024"}
     async with httpx.AsyncClient(timeout=180) as c:
         r = await c.post(
             image_endpoint,
@@ -158,11 +165,13 @@ async def _call_openai_image(endpoint_url: str, model_name: str, api_key: str, p
         raise HTTPException(status_code=502, detail=_upstream_error_message("图片生成", r.status_code, r.text))
     data = r.json()
     image_url = None
+    # /v1/images/generations 格式
     if data.get("data"):
         item = data["data"][0]
         image_url = item.get("url")
         if not image_url and item.get("b64_json"):
             image_url = f"data:image/png;base64,{item['b64_json']}"
+    # /v1/responses 格式
     if not image_url:
         for item in data.get("output", []):
             if item.get("type") == "image_generation_call" and item.get("result"):
