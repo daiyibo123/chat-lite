@@ -12,7 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import User, UserApiKey
-from app.schemas import LoginRequest, LoginResponse, RegisterRequest, UserOut
+from app.schemas import LoginRequest, LoginResponse, RegisterRequest, Sub2apiSsoRequest, UserOut
 from app.security import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -127,6 +127,73 @@ async def login(body: LoginRequest, db: Session = Depends(get_db)):
     return LoginResponse(
         access_token=token,
         user=UserOut.model_validate(user),
+    )
+
+
+@router.post("/sub2api-sso", response_model=LoginResponse)
+async def sub2api_sso(body: Sub2apiSsoRequest, db: Session = Depends(get_db)):
+    """用 sub2api 的 access_token 验证身份并创建本地会话。
+    流程：前端 popup 拿到 sub2api token → POST 到这里 → 后端调 sub2api /me 验证 → 找/建本地用户 → 返回本地 JWT。
+    """
+    token = (body.access_token or "").strip()
+    if not token:
+        raise HTTPException(status_code=400, detail="缺少 access_token")
+    if not settings.SUB2API_ME_URL:
+        raise HTTPException(status_code=500, detail="未配置 SUB2API_ME_URL")
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5, read=8, write=5, pool=5)) as c:
+            res = await c.get(
+                settings.SUB2API_ME_URL,
+                headers={"Authorization": f"Bearer {token}", "Accept": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="sub2api 服务暂时不可用")
+
+    if res.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="sub2api 登录态已失效，请重新登录")
+
+    data = res.json()
+    # sub2api 常见返回: {"code":0,"data":{"user":{...}}} 或直接 {"id":...,"email":...}
+    sub_user = None
+    if isinstance(data, dict):
+        if data.get("code") == 0 and isinstance(data.get("data"), dict):
+            sub_user = data["data"].get("user") or data["data"]
+        elif "id" in data or "email" in data:
+            sub_user = data
+    if not sub_user:
+        raise HTTPException(status_code=502, detail="无法解析 sub2api 用户信息")
+
+    if sub_user.get("status") and sub_user.get("status") != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被禁用")
+
+    sub_id = sub_user.get("id")
+    email = sub_user.get("email") or ""
+    display = sub_user.get("username") or email
+    local_username = f"sub2api:{sub_id or email}"
+    if not local_username or local_username == "sub2api:":
+        raise HTTPException(status_code=502, detail="sub2api 用户信息缺少 id/email")
+
+    user = db.query(User).filter(User.username == local_username).first()
+    if not user:
+        user = User(
+            username=local_username,
+            password_hash=hash_password("sub2api_login_only"),
+            role="user",
+            status="active",
+        )
+        db.add(user)
+        db.flush()
+    user.last_login_at = datetime.utcnow()
+    user.status = "active"
+    _extend_active_keys(user.id, db)
+    db.commit()
+    db.refresh(user)
+
+    local_token = create_access_token({"uid": user.id, "role": user.role})
+    return LoginResponse(
+        access_token=local_token,
+        user=UserOut(id=user.id, username=display or local_username, role=user.role),
     )
 
 

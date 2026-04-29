@@ -28,6 +28,8 @@ class Settings(BaseSettings):
 
     SUB2API_BASE: str = "https://www.dai1bo.tech"
     SUB2API_LOGIN_URL: str = "https://www.dai1bo.tech/api/v1/auth/login"
+    # 用于 SSO：前端把 sub2api token 传过来，后端调这个接口验证 token 并取用户信息
+    SUB2API_ME_URL: str = "https://www.dai1bo.tech/api/v1/auth/me"
 
     CORS_ORIGINS: str = "http://127.0.0.1:5173,http://localhost:5173"
 

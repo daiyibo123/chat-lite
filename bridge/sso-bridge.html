@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sub2api SSO Bridge</title>
+  <style>
+    body { font-family: -apple-system, "Microsoft YaHei", sans-serif; background: #1a1a2e; color: #e0e0e0; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { padding: 32px 40px; background: #16213e; border-radius: 12px; max-width: 360px; text-align: center; }
+    h2 { margin: 0 0 12px; font-size: 1.2rem; color: #fff; }
+    p { color: #aaa; font-size: 0.9rem; line-height: 1.6; margin: 0 0 18px; }
+    .btn { display: inline-block; padding: 10px 22px; background: #e94560; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 0.95rem; text-decoration: none; }
+    .btn:hover { background: #c73650; }
+    .ok { color: #4ade80; }
+    .spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid #aaa; border-top-color: #e94560; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; margin-right: 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <h2 id="title"><span class="spinner"></span>正在检测登录态…</h2>
+    <p id="msg">请稍候</p>
+    <div id="actions"></div>
+  </div>
+
+  <script>
+  (function () {
+    // ===== 配置：允许接收 token 的来源（部署后改成你的真实域名） =====
+    const ALLOWED_ORIGINS = [
+      'https://chat.dai1bo.tech',
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+    ];
+    // ===== sub2api localStorage 中存 access_token 的 key（按需修改）=====
+    const TOKEN_KEYS = ['access_token', 'token', 'auth_token'];
+
+    const params = new URLSearchParams(location.search);
+    const origin = params.get('origin') || '';
+    const card = document.getElementById('card');
+    const title = document.getElementById('title');
+    const msg = document.getElementById('msg');
+    const actions = document.getElementById('actions');
+
+    function setView(t, m, html) {
+      title.innerHTML = t;
+      msg.innerHTML = m;
+      actions.innerHTML = html || '';
+    }
+
+    if (!ALLOWED_ORIGINS.includes(origin)) {
+      setView('❌ 来源不被允许', '请检查 origin 参数是否在白名单中。<br>当前: ' + (origin || '(空)'));
+      return;
+    }
+
+    // 读 token
+    let token = null;
+    for (const k of TOKEN_KEYS) {
+      const v = localStorage.getItem(k);
+      if (v && v.length > 20) { token = v; break; }
+    }
+
+    if (token) {
+      // 找到 token，发回 opener
+      if (window.opener) {
+        window.opener.postMessage({ type: 'sub2api_token', token: token }, origin);
+        setView('<span class="ok">✓ 登录态已发送</span>', '正在返回 chat-lite…');
+        setTimeout(() => window.close(), 600);
+      } else {
+        setView('❌ 无法定位主窗口', '请关闭此页并重新点击"一键登录"按钮');
+      }
+    } else {
+      // 没 token，引导去登录 sub2api
+      setView(
+        '尚未登录 sub2api',
+        '请先登录 sub2api，登录后点下面按钮回来',
+        '<a class="btn" href="/login">去登录 sub2api</a>' +
+        ' <button class="btn" onclick="location.reload()" style="background:#0f3460;margin-left:6px">已登录，重试</button>'
+      );
+    }
+  })();
+  </script>
+</body>
+</html>

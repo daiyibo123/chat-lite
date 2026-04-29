@@ -1,0 +1,25 @@
+# Caddyfile 片段：在 sub2api 站点配置中加这一段，让 /sso-bridge.html 可访问
+
+www.dai1bo.tech {
+    # ... 你原有的 reverse_proxy 等配置保持不变 ...
+
+    # 单独把 /sso-bridge.html 指向静态文件
+    @sso path /sso-bridge.html
+    handle @sso {
+        root * /var/www/sub2api-static     # ← 改成你存放 sso-bridge.html 的目录
+        file_server
+        # 重要：允许跨域 postMessage 没问题（同域内 localStorage 直接读），不需要 CORS
+        # 但要确保浏览器不缓存旧版本
+        header Cache-Control "no-store"
+        header X-Frame-Options "SAMEORIGIN"
+    }
+
+    # ... 你原有的其它 handle / reverse_proxy ...
+}
+
+# 部署步骤：
+# 1. mkdir -p /var/www/sub2api-static
+# 2. 把 chat-lite/bridge/sso-bridge.html 上传到 /var/www/sub2api-static/
+# 3. 编辑你现有的 Caddyfile，把上面的 @sso handle 块加进去（注意放在通用 reverse_proxy 之前）
+# 4. caddy reload --config /etc/caddy/Caddyfile
+# 5. 浏览器访问 https://www.dai1bo.tech/sso-bridge.html?origin=https://chat.dai1bo.tech 验证页面能加载

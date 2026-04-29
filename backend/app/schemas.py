@@ -20,6 +20,10 @@ class RegisterRequest(BaseModel):
     password: str
 
 
+class Sub2apiSsoRequest(BaseModel):
+    access_token: str
+
+
 class UserOut(BaseModel):
     id: int
     username: str

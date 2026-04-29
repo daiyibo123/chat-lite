@@ -250,9 +250,12 @@ async function send() {
 
   sending.value = true
   try {
+    const token = localStorage.getItem('token')
+    const headers = { 'Content-Type': 'application/json' }
+    if (token) headers.Authorization = `Bearer ${token}`
     const resp = await fetch('/api/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         conversation_id: props.conversationId,
         model_name: props.model.model_name,

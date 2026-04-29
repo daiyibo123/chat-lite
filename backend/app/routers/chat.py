@@ -492,23 +492,27 @@ async def chat_stream(
     )
 
     endpoint_url = model_cfg.endpoint_url or ""
-    summary, context_history = await _maybe_compress(
-        conv, history,
-        model_cfg.endpoint_type, endpoint_url, model_cfg.model_name, api_key,
-        db,
-    )
+    ep_type = model_cfg.endpoint_type
 
-    images = body.images or None
-    openai_msgs = _build_openai_messages(summary, context_history, images)
+    # 生图模型不需要压缩/构建上下文
+    if ep_type == "openai_image":
+        summary, context_history = conv.summary, history
+        openai_msgs = []
+    else:
+        summary, context_history = await _maybe_compress(
+            conv, history,
+            ep_type, endpoint_url, model_cfg.model_name, api_key,
+            db,
+        )
+        images = body.images or None
+        openai_msgs = _build_openai_messages(summary, context_history, images)
 
     # 保存需要在流结束后用到的信息
     conv_id = conv.id
     user_id = current_user.id
     m_name = model_cfg.model_name
-    ep_type = model_cfg.endpoint_type
     is_first = len(context_history) <= 1
     user_text = body.message
-    is_image_model = model_cfg.support_image
 
     # 先 commit 用户消息
     db.commit()
@@ -523,7 +527,8 @@ async def chat_stream(
                 # 发送图片生成事件
                 yield f"data: {json.dumps({'image_url': image_url}, ensure_ascii=False)}\n\n"
             except Exception as e:
-                stream_error = e.detail if isinstance(e, HTTPException) else str(e)[:200]
+                detail = e.detail if isinstance(e, HTTPException) else str(e)
+                stream_error = str(detail)[:300]
                 yield f"data: {json.dumps({'error': stream_error}, ensure_ascii=False)}\n\n"
                 yield "data: [DONE]\n\n"
                 return
