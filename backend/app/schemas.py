@@ -10,6 +10,12 @@ from pydantic import BaseModel
 # ───────────────── Auth ─────────────────
 
 class LoginRequest(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+    password: str
+
+
+class RegisterRequest(BaseModel):
     username: str
     password: str
 

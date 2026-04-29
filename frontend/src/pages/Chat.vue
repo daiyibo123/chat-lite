@@ -16,6 +16,9 @@
         <button class="footer-btn" @click="toggleTheme" :title="isDark ? '切换日间' : '切换夜间'">
           <span class="footer-icon">{{ isDark ? '☀️' : '🌙' }}</span>
         </button>
+        <button class="footer-btn" @click="logout" title="退出登录">
+          <span class="footer-icon">退出</span>
+        </button>
       </div>
     </aside>
 
@@ -77,12 +80,14 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import request from '../api/request.js'
 import KeyConfigModal from '../components/KeyConfigModal.vue'
 import ModelSelector from '../components/ModelSelector.vue'
 import ConversationList from '../components/ConversationList.vue'
 import ChatWindow from '../components/ChatWindow.vue'
 
+const router = useRouter()
 const showKeyModal = ref(false)
 const availableModels = ref([])
 const currentModel = ref(null)
@@ -203,6 +208,14 @@ async function headerDeleteConv() {
     currentConv.value = null
     await loadConversations()
   } catch {}
+}
+
+function logout() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('username')
+  localStorage.removeItem('chat_conv_id')
+  localStorage.removeItem('chat_model')
+  router.push('/login')
 }
 
 function onKeySaved() {

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_guest_user
+from app.deps import get_current_user
 from app.models import User, UserApiKey
 from app.schemas import (
     KeySaveRequest,
@@ -115,7 +115,7 @@ def _upsert_key(db: Session, user_id: int, key_type: str, plain_key: str) -> Non
 @router.post("/save", response_model=KeySaveResponse)
 async def save_keys(
     body: KeySaveRequest,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     results = {}
@@ -135,7 +135,7 @@ async def save_keys(
 
 @router.get("/status", response_model=KeyStatusResponse)
 def key_status(
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     now = datetime.utcnow()

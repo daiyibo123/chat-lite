@@ -14,7 +14,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db, SessionLocal
-from app.deps import get_guest_user
+from app.deps import get_current_user
 from app.models import Conversation, Message, Model as ModelORM, User, UserApiKey, UsageLog
 from app.schemas import ChatSendRequest, ChatSendResponse
 from app.security import decrypt_api_key
@@ -303,7 +303,7 @@ async def _maybe_compress(
 @router.post("/send", response_model=ChatSendResponse)
 async def chat_send(
     body: ChatSendRequest,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     # 1. 校验对话归属
@@ -450,7 +450,7 @@ async def _stream_openai(endpoint_url: str, model_name: str, api_key: str, messa
 @router.post("/stream")
 async def chat_stream(
     body: ChatSendRequest,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """流式聊天：通过 SSE 逐 token 返回 AI 回复。"""

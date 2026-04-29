@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_guest_user
+from app.deps import get_current_user
 from app.models import KeyInputSetting, Model as ModelORM, User, UserApiKey
 from app.schemas import ModelAvailableOut
 
@@ -54,7 +54,7 @@ def key_availability(db: Session = Depends(get_db)):
 
 @router.get("/available", response_model=List[ModelAvailableOut])
 def available_models(
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     now = datetime.utcnow()

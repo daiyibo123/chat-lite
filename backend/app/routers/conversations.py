@@ -13,7 +13,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.deps import get_guest_user
+from app.deps import get_current_user
 from app.models import Conversation, Message, User
 from app.schemas import ConversationOut, MessageOut
 
@@ -24,7 +24,7 @@ MAX_CONVERSATIONS = 10
 
 @router.post("", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
 def create_conversation(
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     count = db.query(Conversation).filter(Conversation.user_id == current_user.id).count()
@@ -43,7 +43,7 @@ def create_conversation(
 
 @router.get("", response_model=List[ConversationOut])
 def list_conversations(
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     return (
@@ -58,7 +58,7 @@ def list_conversations(
 @router.delete("/{conv_id}")
 def delete_conversation(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv = db.query(Conversation).filter(
@@ -76,7 +76,7 @@ def delete_conversation(
 @router.get("/{conv_id}/messages", response_model=List[MessageOut])
 def get_messages(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv = db.query(Conversation).filter(
@@ -99,7 +99,7 @@ def get_messages(
 def delete_message_and_after(
     conv_id: int,
     msg_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """删除指定消息及其之后的所有消息（用于回退重发）。"""
@@ -122,7 +122,7 @@ def update_message(
     conv_id: int,
     msg_id: int,
     body: dict,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """编辑用户消息内容。"""
@@ -173,7 +173,7 @@ def _fmt(dt) -> str:
 @router.get("/{conv_id}/export/json")
 def export_json(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv, msgs = _get_conv_and_messages(conv_id, current_user, db)
@@ -201,7 +201,7 @@ def export_json(
 @router.get("/{conv_id}/export/md")
 def export_markdown(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv, msgs = _get_conv_and_messages(conv_id, current_user, db)
@@ -259,7 +259,7 @@ def _find_chinese_font():
 @router.get("/{conv_id}/export/pdf")
 def export_pdf(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     from reportlab.lib.pagesizes import A4
@@ -345,7 +345,7 @@ def export_pdf(
 @router.post("/{conv_id}/share")
 def share_conversation(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv = db.query(Conversation).filter(
@@ -364,7 +364,7 @@ def share_conversation(
 @router.delete("/{conv_id}/share")
 def unshare_conversation(
     conv_id: int,
-    current_user: User = Depends(get_guest_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     conv = db.query(Conversation).filter(

@@ -3,23 +3,114 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from app.config import settings
 
 from app.database import get_db
 from app.deps import get_current_user
 from app.models import User, UserApiKey
-from app.schemas import LoginRequest, LoginResponse, UserOut
-from app.security import verify_password, create_access_token
+from app.schemas import LoginRequest, LoginResponse, RegisterRequest, UserOut
+from app.security import hash_password, verify_password, create_access_token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 KEY_EXTEND_DAYS = 7
 
 
+def _extend_active_keys(user_id: int, db: Session) -> None:
+    now = datetime.utcnow()
+    new_expires = now + timedelta(days=KEY_EXTEND_DAYS)
+    keys = db.query(UserApiKey).filter(
+        UserApiKey.user_id == user_id,
+        UserApiKey.expires_at > now,
+    ).all()
+    for k in keys:
+        k.expires_at = new_expires
+        k.updated_at = now
+
+
+async def _login_with_sub2api(body: LoginRequest, db: Session) -> LoginResponse:
+    account = (body.email or body.username or "").strip()
+    password = body.password.strip()
+    if not account or not password:
+        raise HTTPException(status_code=400, detail="请输入账号和密码")
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(12, connect=5, read=8, write=5, pool=5)) as c:
+            res = await c.post(
+                settings.SUB2API_LOGIN_URL,
+                json={"email": account, "password": password},
+                headers={"Content-Type": "application/json"},
+            )
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="sub2api 登录服务暂时不可用")
+    if res.status_code != 200:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误")
+    data = res.json()
+    if data.get("code") != 0:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=data.get("message") or "账号或密码错误")
+    sub_user = data.get("data", {}).get("user") or {}
+    if sub_user.get("status") and sub_user.get("status") != "active":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="账号已被禁用")
+    sub_id = sub_user.get("id")
+    email = sub_user.get("email") or account
+    username = sub_user.get("username") or email
+    local_username = f"sub2api:{sub_id or email}"
+    user = db.query(User).filter(User.username == local_username).first()
+    if not user:
+        user = User(
+            username=local_username,
+            password_hash=hash_password("sub2api_login_only"),
+            role="user",
+            status="active",
+        )
+        db.add(user)
+        db.flush()
+    user.last_login_at = datetime.utcnow()
+    user.status = "active"
+    _extend_active_keys(user.id, db)
+    db.commit()
+    db.refresh(user)
+    token = create_access_token({"uid": user.id, "role": user.role})
+    return LoginResponse(
+        access_token=token,
+        user=UserOut(id=user.id, username=username, role=user.role),
+    )
+
+
+@router.post("/register", response_model=LoginResponse)
+def register(body: RegisterRequest, db: Session = Depends(get_db)):
+    username = body.username.strip()
+    password = body.password.strip()
+    if len(username) < 3 or len(username) > 32:
+        raise HTTPException(status_code=400, detail="用户名长度需要在 3-32 位之间")
+    if len(password) < 6 or len(password) > 64:
+        raise HTTPException(status_code=400, detail="密码长度需要在 6-64 位之间")
+    exists = db.query(User).filter(User.username == username).first()
+    if exists:
+        raise HTTPException(status_code=409, detail="用户名已存在")
+    user = User(
+        username=username,
+        password_hash=hash_password(password),
+        role="user",
+        status="active",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    token = create_access_token({"uid": user.id, "role": user.role})
+    return LoginResponse(access_token=token, user=UserOut.model_validate(user))
+
+
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == body.username).first()
+async def login(body: LoginRequest, db: Session = Depends(get_db)):
+    if settings.SUB2API_LOGIN_URL:
+        return await _login_with_sub2api(body, db)
+
+    username = (body.username or body.email or "").strip()
+    user = db.query(User).filter(User.username == username).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误")
     if user.status != "active":
@@ -28,16 +119,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     # 更新 last_login_at
     user.last_login_at = datetime.utcnow()
 
-    # 续期未过期的 Key
-    now = datetime.utcnow()
-    new_expires = now + timedelta(days=KEY_EXTEND_DAYS)
-    keys = db.query(UserApiKey).filter(
-        UserApiKey.user_id == user.id,
-        UserApiKey.expires_at > now,
-    ).all()
-    for k in keys:
-        k.expires_at = new_expires
-        k.updated_at = now
+    _extend_active_keys(user.id, db)
 
     db.commit()
 

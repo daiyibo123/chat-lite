@@ -2,10 +2,13 @@
   <div class="login-page">
     <div class="login-card">
       <h1>Chat Lite</h1>
-      <form @submit.prevent="handleLogin">
+      <div class="tabs">
+        <button type="button" class="active">sub2api 登录</button>
+      </div>
+      <form @submit.prevent="handleSubmit">
         <div class="field">
-          <label>用户名</label>
-          <input v-model="form.username" type="text" placeholder="请输入用户名" autocomplete="username" />
+          <label>邮箱</label>
+          <input v-model="form.email" type="email" placeholder="请输入 sub2api 邮箱" autocomplete="email" />
         </div>
         <div class="field">
           <label>密码</label>
@@ -28,14 +31,15 @@ import request from '../api/request.js'
 const router = useRouter()
 const loading = ref(false)
 const error = ref('')
-const form = reactive({ username: '', password: '' })
+const form = reactive({ email: '', password: '' })
 
-async function handleLogin() {
+async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
     const res = await request.post('/api/auth/login', form)
     localStorage.setItem('token', res.data.access_token)
+    localStorage.setItem('username', res.data.user.username)
     router.push('/chat')
   } catch (e) {
     error.value = e.response?.data?.detail || '登录失败'
@@ -63,8 +67,21 @@ async function handleLogin() {
 .login-card h1 {
   text-align: center;
   font-size: 1.8rem;
-  margin-bottom: 32px;
+  margin-bottom: 22px;
   color: #e0e0e0;
+}
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.tabs button {
+  background: #0f3460;
+  color: #aaa;
+}
+.tabs button.active {
+  background: #e94560;
+  color: #fff;
 }
 .field {
   margin-bottom: 20px;

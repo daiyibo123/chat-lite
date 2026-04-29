@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     ADMIN_PASSWORD: str = "please_change_admin_password"
 
     SUB2API_BASE: str = "https://www.dai1bo.tech"
+    SUB2API_LOGIN_URL: str = "https://www.dai1bo.tech/api/v1/auth/login"
 
     CORS_ORIGINS: str = "http://127.0.0.1:5173,http://localhost:5173"
 
