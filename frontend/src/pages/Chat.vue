@@ -126,7 +126,7 @@ async function loadModels() {
       checkedKeys.value = true
       if (!res.data.length) showKeyModal.value = true
     }
-  } catch {}
+  } catch (e) { console.error('[loadModels]', e) }
 }
 
 async function loadConversations() {
@@ -145,7 +145,7 @@ async function loadConversations() {
     if (currentConv.value && !res.data.find(c => c.id === currentConv.value.id)) {
       currentConv.value = res.data.length ? res.data[0] : null
     }
-  } catch {}
+  } catch (e) { console.error('[loadConversations]', e) }
 }
 
 const shareToast = ref('')

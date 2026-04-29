@@ -229,19 +229,17 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.25);
   border-radius: 10px;
-  background: rgba(0,0,0,.58);
+  background: rgba(0,0,0,.62);
   color: #fff;
   cursor: pointer;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity .15s ease, transform .15s ease, background .15s ease;
+  opacity: 0.85;
+  transition: opacity .15s ease, background .15s ease;
   backdrop-filter: blur(8px);
 }
 .gen-card:hover .download-btn {
   opacity: 1;
-  transform: translateY(0);
 }
 .download-btn:hover {
   background: rgba(0,0,0,.78);

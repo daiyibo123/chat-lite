@@ -228,7 +228,7 @@ async function loadMessages() {
     messages.value = res.data
     await nextTick()
     scrollBottom()
-  } catch {}
+  } catch (e) { console.error('[loadMessages]', e) }
 }
 
 async function send() {
@@ -618,7 +618,7 @@ watch(() => props.conversationId, () => { loadMessages() }, { immediate: true })
   display: flex;
   gap: 2px;
   margin-top: 4px;
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity .15s;
 }
 .msg:hover .user-actions { opacity: 1; }
@@ -715,7 +715,7 @@ watch(() => props.conversationId, () => { loadMessages() }, { immediate: true })
   margin-top: 4px;
   display: flex;
   gap: 6px;
-  opacity: 0;
+  opacity: 0.55;
   transition: opacity .15s;
 }
 .msg:hover .ai-actions { opacity: 1; }

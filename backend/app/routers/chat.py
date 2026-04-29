@@ -146,16 +146,8 @@ async def _call_anthropic(endpoint_url: str, model_name: str, api_key: str, mess
 
 
 async def _call_openai_image(endpoint_url: str, model_name: str, api_key: str, prompt: str) -> dict:
-    image_endpoint = endpoint_url
-    payload = {"model": model_name, "prompt": prompt, "n": 1, "size": "1024x1024", "response_format": "url"}
-    if model_name.startswith("gpt-image"):
-        image_endpoint = endpoint_url.replace("/v1/images/generations", "/v1/responses")
-        payload = {
-            "model": model_name,
-            "input": prompt,
-            "tools": [{"type": "image_generation"}],
-            "tool_choice": {"type": "image_generation"},
-        }
+    image_endpoint = endpoint_url          # 统一使用 /v1/images/generations
+    payload = {"model": model_name, "prompt": prompt, "n": 1, "size": "1024x1024"}
     async with httpx.AsyncClient(timeout=180) as c:
         r = await c.post(
             image_endpoint,
