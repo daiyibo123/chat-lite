@@ -42,6 +42,8 @@
 import { ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import request from '../api/request.js'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 const route = useRoute()
 const conversation = ref({})
@@ -64,7 +66,36 @@ function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+function renderKatex(latex, displayMode) {
+  try {
+    return katex.renderToString(latex, { displayMode, throwOnError: false })
+  } catch { return escapeHtml(latex) }
+}
+
 function renderContent(text) {
+  // 0. 提取 LaTeX 公式
+  const mathBlocks = []
+  text = text.replace(/\$\$([\s\S]+?)\$\$/g, (_, tex) => {
+    const idx = mathBlocks.length
+    mathBlocks.push(renderKatex(tex.trim(), true))
+    return `__MATH_${idx}__`
+  })
+  text = text.replace(/\\\[([\s\S]+?)\\\]/g, (_, tex) => {
+    const idx = mathBlocks.length
+    mathBlocks.push(renderKatex(tex.trim(), true))
+    return `__MATH_${idx}__`
+  })
+  text = text.replace(/\\\((.+?)\\\)/g, (_, tex) => {
+    const idx = mathBlocks.length
+    mathBlocks.push(renderKatex(tex.trim(), false))
+    return `__MATH_${idx}__`
+  })
+  text = text.replace(/(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)/g, (_, tex) => {
+    const idx = mathBlocks.length
+    mathBlocks.push(renderKatex(tex.trim(), false))
+    return `__MATH_${idx}__`
+  })
+
   // 1. 提取 ![img](url)
   const imgMap = []
   text = text.replace(/!\[img\]\(([^)]+)\)/g, (_, url) => {
@@ -163,6 +194,11 @@ function renderContent(text) {
   html = html.replace(/<br>```\w*<br>/g, '<br>')
   html = html.replace(/^```\w*<br>/g, '')
   html = html.replace(/<br>```\w*$/g, '')
+
+  // 11. 还原 LaTeX 公式
+  for (let i = 0; i < mathBlocks.length; i++) {
+    html = html.replace(`__MATH_${i}__`, mathBlocks[i])
+  }
 
   return html
 }
@@ -387,5 +423,15 @@ onMounted(loadShare)
   margin: 8px 0 4px;
   object-fit: contain;
   border: 1px solid var(--border);
+}
+
+/* ─── KaTeX 公式 ─── */
+:deep(.katex-display) {
+  margin: 12px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+:deep(.katex) {
+  font-size: 1.05em;
 }
 </style>
