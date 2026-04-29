@@ -4,9 +4,12 @@
       <canvas ref="canvasRef" class="particle-canvas" :class="{ 'fade-out': imageReady }"></canvas>
       <img
         v-if="imageUrl"
+        :key="imageUrl"
         :src="imageUrl"
         class="gen-image"
         :class="{ 'fade-in': imageReady }"
+        @load="handleImageLoad"
+        @error="handleImageError"
         @click="openFull"
       />
       <button v-if="imageUrl" class="download-btn" title="下载图片" @click.stop="downloadImage">⬇</button>
@@ -16,6 +19,13 @@
           <span class="dot-anim d2">●</span>
           <span class="dot-anim d3">●</span>
           &nbsp;正在生成图片…
+        </span>
+        <span v-else-if="imageError" class="gen-error">图片加载失败 · 点击打开</span>
+        <span v-else-if="!imageReady" class="gen-loading">
+          <span class="dot-anim">●</span>
+          <span class="dot-anim d2">●</span>
+          <span class="dot-anim d3">●</span>
+          &nbsp;正在加载图片…
         </span>
         <span v-else class="gen-done">生成完成 · 点击查看大图</span>
       </div>
@@ -32,13 +42,18 @@ const props = defineProps({
 
 const canvasRef = ref(null)
 const imageReady = ref(false)
+const imageError = ref(false)
 let animId = null
 let particles = []
 
 watch(() => props.imageUrl, (url) => {
-  if (url) {
-    setTimeout(() => { imageReady.value = true }, 250)
-  }
+  imageReady.value = false
+  imageError.value = false
+  if (!url) return
+  const img = new Image()
+  img.onload = () => handleImageLoad()
+  img.onerror = () => handleImageError()
+  img.src = url
 })
 
 function initParticles() {
@@ -115,6 +130,16 @@ function openFull() {
   if (props.imageUrl) window.open(props.imageUrl, '_blank')
 }
 
+function handleImageLoad() {
+  imageReady.value = true
+  imageError.value = false
+}
+
+function handleImageError() {
+  imageReady.value = false
+  imageError.value = true
+}
+
 async function downloadImage() {
   if (!props.imageUrl) return
   const filename = `chat-lite-image-${Date.now()}.png`
@@ -178,11 +203,14 @@ onUnmounted(() => {
 }
 .particle-canvas {
   transition: opacity 1s ease;
+  z-index: 1;
 }
 .particle-canvas.fade-out {
   opacity: 0;
+  pointer-events: none;
 }
 .gen-image {
+  z-index: 2;
   object-fit: cover;
   opacity: 0;
   transition: opacity 1s ease;
@@ -247,6 +275,9 @@ onUnmounted(() => {
 @keyframes dotPulse {
   0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
   40% { opacity: 1; transform: scale(1.2); }
+}
+.gen-error {
+  color: #f87171;
 }
 .gen-done {
   color: #4ade80;
